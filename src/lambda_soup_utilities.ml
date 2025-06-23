@@ -59,6 +59,11 @@ let%expect_test "get_list_items" =
     |}]
 ;;
 
+let node_to_string node =
+  let open Soup in
+  texts node |> String.concat ~sep:"" |> String.strip
+;;
+
 (* Gets the first item of all unordered lists contained in an HTML page. *)
 let get_first_item_of_all_unordered_lists contents : string list =
   let open Soup in
@@ -73,13 +78,10 @@ let get_first_item_of_all_unordered_lists contents : string list =
     |> to_list
     (*Take first node of every list of li and get text*)
     |> List.hd_exn
-    |> texts
-    (*Join all text in the first li element, ignore whitespace*)
-    |> String.concat ~sep:""
-    |> String.strip)
+    |> node_to_string)
 ;;
 
-(*let%expect_test "get_first_ul_item" =
+let%expect_test "get_first_ul_item" =
   (* This test specifies the HTML content directly in the file. *)
   let contents =
     {|<!DOCTYPE html>
@@ -104,28 +106,54 @@ let get_first_item_of_all_unordered_lists contents : string list =
   in
   let first_items = get_first_item_of_all_unordered_lists contents in
   print_s [%message (first_items : string list)];
-  [%expect {| My Blog |}]
-;;*)
+  [%expect {| (first_items (Coffee)) |}]
+;;
 
 (* Gets the first item of the second unordered list in an HTML page. *)
 let get_first_item_of_second_unordered_list contents : string =
   let open Soup in
-  (*get list of all uls in html file*)
-  parse contents
-  $$ "ul"
-  |> to_list
-  (*get second ul, head of tail*)
-  |> List.tl_exn
-  |> List.hd_exn
-  (*get all li elements from our ul*)
-  |> select "li"
-  |> to_list
-  (*take the first li element from our ul*)
-  |> List.hd_exn
+  let ul_list = parse contents $$ "ul" |> to_list in
+  (*get second ul*)
+  List.nth_exn ul_list 1
+  (*get first li node from our ul*)
+  |> R.select_one "li"
   (*join all text in our li element*)
-  |> texts
-  |> String.concat ~sep:""
-  |> String.strip
+  |> node_to_string
+;;
+
+let%expect_test "get_first_ul_item_of_second_ul" =
+  (* This test specifies the HTML content directly in the file. *)
+  let contents =
+    {|<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <title>My Blog</title>
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+    <ul>
+  <li>Coffee</li>
+  <li>Tea</li>
+  <li>Milk</li>
+</ul>
+<ul>
+  <li>Bagel</li>
+  <li>Tea</li>
+  <li>Milk</li>
+</ul>
+    </body>
+    <script src="index.js"></script>
+</html>
+|}
+  in
+  let second_ul_first_item =
+    get_first_item_of_second_unordered_list contents
+  in
+  print_s [%message (second_ul_first_item : string)];
+  [%expect {| (second_ul_first_item Bagel) |}]
 ;;
 
 (* Gets all bolded text from an HTML page. *)
@@ -136,8 +164,41 @@ let get_bolded_text contents : string list =
   $$ "b"
   |> to_list
   (*replace bold nodes with stripped text of each bold node*)
-  |> List.map ~f:(fun bold_node ->
-    texts bold_node |> String.concat ~sep:"" |> String.strip)
+  |> List.map ~f:(fun bold_node -> node_to_string bold_node)
+;;
+
+let%expect_test "get_bolded_text" =
+  (* This test specifies the HTML content directly in the file. *)
+  let contents =
+    {|<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <title>My Blog</title>
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+    <ul>
+  <li><b>Coffee</b></li>
+  <li>Tea</li>
+  <li>Milk</li>
+</ul>
+<ul>
+  <li>Bagel</li>
+  <li>Tea</li>
+  <li>Milk</li>
+</ul>
+<p> blahblahal sjhdjdjs <b> this should be bold </b>
+    </body>
+    <script src="index.js"></script>
+</html>
+|}
+  in
+  let bolded_text = get_bolded_text contents in
+  print_s [%message (bolded_text : string list)];
+  [%expect {| (bolded_text (Coffee "this should be bold")) |}]
 ;;
 
 (* [make_command ~summary ~f] is a helper function that builds a simple HTML parsing

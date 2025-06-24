@@ -34,7 +34,9 @@ module Network = struct
              consider the connection between b and a. *)
           [ a, b; b, a ]
         | None ->
-          printf "ERROR: Could not parse line as connection; dropping. %s\n" s;
+          printf
+            "ERROR: Could not parse line as connection; dropping. %s\n"
+            s;
           [])
     in
     Connection.Set.of_list connections
@@ -91,8 +93,8 @@ let visualize_command =
   let open Command.Let_syntax in
   Command.basic
     ~summary:
-      "parse a file listing friendships and generate a graph visualizing the social \
-       network"
+      "parse a file listing friendships and generate a graph visualizing \
+       the social network"
     [%map_open
       let input_file =
         flag
@@ -112,15 +114,32 @@ let visualize_command =
           (* [G.add_edge] auomatically adds the endpoints as vertices in the graph if
              they don't already exist. *)
           G.add_edge graph person1 person2);
-        Dot.output_graph (Out_channel.create (File_path.to_string output_file)) graph;
+        Dot.output_graph
+          (Out_channel.create (File_path.to_string output_file))
+          graph;
         printf !"Done! Wrote dot file to %{File_path}\n%!" output_file]
 ;;
 
 (* [find_friend_group network ~person] returns a list of all people who are mutually
    connected to the provided [person] in the provided [network]. *)
+(* let is_in_network connection target_person : bool =
+  let first_person, second_person = connection in
+  Person.equal first_person target_person
+  || Person.equal second_person target_person
+;;
+
+let get_friend connection target_person : string =
+  let first_person, second_person = connection in
+  match Person.equal target_person first_person with
+  | true -> second_person
+  | false -> first_person
+;;
+ *)
 let find_friend_group network ~person : Person.t list =
-  ignore (network : Network.t);
-  ignore (person : Person.t);
+  (* let filtered_network = Set.filter ~f:(fun connection -> is_in_network connection person) network in
+     Set.map ~f:(fun connection -> get_friend connection person) filtered_network *)
+  ignore network;
+  ignore person;
   failwith "TODO"
 ;;
 

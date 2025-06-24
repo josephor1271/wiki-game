@@ -40,9 +40,33 @@ let get_linked_articles contents : string list =
   |> remove_namespaces_and_duplicates
 ;;
 
-(*List.filter
-  ~f:(fun href_attribute -> String.equal href_attribute "" |> not)
-  attribute_list*)
+let%expect_test "get_linked_articles" =
+  (* This test specifies the HTML content directly in the file. *)
+  let contents =
+    {|<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Carnivora - Wikipedia</title>
+  </head> 
+  <body>
+    <p>The <a href="/wiki/Order_(biology)">order</a> Carnivora is a
+    group of <a href="/wiki/Mammal">mammals</a>. The group is divided
+    into the "cat-like" <a href="/wiki/Feliformia">Feliformia</a> and
+    the "dog-like" <a href="/wiki/Caniformia">Caniformia</a>.</p>  
+
+    <p><a href="/wiki/Talk:Order_(biology)">Talk</a></p>
+  </body>
+</html>
+|}
+  in
+  let linked_articles = get_linked_articles contents in
+  print_s [%message (linked_articles : string list)];
+  [%expect
+    {|
+      (linked_articles
+       ("/wiki/Order_(biology)" /wiki/Mammal /wiki/Feliformia /wiki/Caniformia)) |}]
+;;
 
 let print_links_command =
   let open Command.Let_syntax in

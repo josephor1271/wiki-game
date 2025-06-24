@@ -14,10 +14,35 @@ open! Core
    One nice think about Wikipedia is that stringent content moderation results in
    uniformity in article format. We can expect that all Wikipedia article links parsed
    from a Wikipedia page will have the form "/wiki/<TITLE>". *)
-let get_linked_articles contents : string list =
-  ignore (contents : string);
-  failwith "TODO"
+let filter_attribute_list href_attribute_list : string list =
+  List.filter
+    ~f:(fun href_attribute ->
+      String.is_prefix ~prefix:"/wiki/" href_attribute)
+    href_attribute_list
 ;;
+
+let remove_namespaces_and_duplicates link_list : string list =
+  List.map link_list ~f:(fun link ->
+    match Wikipedia_namespace.namespace link with None -> link | _ -> "")
+  |> List.filter ~f:(fun href_attribute ->
+    String.equal href_attribute "" |> not)
+  |> List.remove_consecutive_duplicates ~equal:String.equal
+;;
+
+let get_linked_articles contents : string list =
+  let open Soup in
+  let link_node_list = parse contents $$ "a[href]" |> to_list in
+  let href_attribute_list =
+    List.map link_node_list ~f:(fun link_node ->
+      R.attribute "href" link_node |> String.strip)
+  in
+  filter_attribute_list href_attribute_list
+  |> remove_namespaces_and_duplicates
+;;
+
+(*List.filter
+  ~f:(fun href_attribute -> String.equal href_attribute "" |> not)
+  attribute_list*)
 
 let print_links_command =
   let open Command.Let_syntax in
@@ -47,8 +72,8 @@ let visualize_command =
   let open Command.Let_syntax in
   Command.basic
     ~summary:
-      "parse a file listing interstates and generate a graph visualizing the highway \
-       network"
+      "parse a file listing interstates and generate a graph visualizing \
+       the highway network"
     [%map_open
       let how_to_fetch = File_fetcher.How_to_fetch.param
       and origin = flag "origin" (required string) ~doc:" the starting page"
@@ -87,11 +112,14 @@ let find_path ?(max_depth = 3) ~origin ~destination ~how_to_fetch () =
 let find_path_command =
   let open Command.Let_syntax in
   Command.basic
-    ~summary:"Play wiki game by finding a link between the origin and destination pages"
+    ~summary:
+      "Play wiki game by finding a link between the origin and destination \
+       pages"
     [%map_open
       let how_to_fetch = File_fetcher.How_to_fetch.param
       and origin = flag "origin" (required string) ~doc:" the starting page"
-      and destination = flag "destination" (required string) ~doc:" the destination page"
+      and destination =
+        flag "destination" (required string) ~doc:" the destination page"
       and max_depth =
         flag
           "max-depth"

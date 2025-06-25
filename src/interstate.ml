@@ -1,6 +1,11 @@
 open! Core
 module City = String
-module Interstate_Name = String
+
+module Interstate_Name = struct
+  include String
+
+  let default = ""
+end
 
 (* We separate out the [Network] module to represent our social network in OCaml types. *)
 module Interstate_Network = struct
@@ -82,7 +87,7 @@ let load_command =
         printf !"%{sexp: Interstate_Network.t}\n" network]
 ;;
 
-module G = Graph.Imperative.Graph.Concrete (City)
+module G = Graph.Imperative.Graph.ConcreteLabeled (City) (Interstate_Name)
 
 (* We extend our [Graph] structure with the [Dot] API so that we can easily render
    constructed graphs. Documentation about this API can be found here:
@@ -94,7 +99,7 @@ module Dot = Graph.Graphviz.Dot (struct
        graph. Check out the ocamlgraph graphviz API
        (https://github.com/backtracking/ocamlgraph/blob/master/src/graphviz.mli) for
        examples of what values can be set here. *)
-    let edge_attributes _ = [ `Dir `None ]
+    let edge_attributes edge = [ `Dir `None; `Label (E.label edge) ]
     let default_edge_attributes _ = []
     let get_subgraph _ = None
     let vertex_attributes v = [ `Shape `Box; `Label v; `Fillcolor 1000 ]
@@ -129,8 +134,7 @@ let visualize_command =
         Set.iter interstate_network ~f:(fun (name, (city_1, city_2)) ->
           (* [G.add_edge] auomatically adds the endpoints as vertices in the graph if
              they don't already exist. *)
-          ignore name;
-          G.add_edge graph city_1 city_2);
+          G.add_edge_e graph (city_1, name, city_2));
         Dot.output_graph
           (Out_channel.create (File_path.to_string output_file))
           graph;

@@ -9,8 +9,9 @@ let node_to_string node =
 
 let get_credits contents : string list =
   let open Soup in
+  let class_name_for_known_for_section = ".sc-c3958617-0" in
   parse contents
-  $ ".sc-c3958617-0"
+  $ class_name_for_known_for_section
   $$ "a"
   |> to_list
   |> List.map ~f:node_to_string

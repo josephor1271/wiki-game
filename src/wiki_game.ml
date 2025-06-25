@@ -14,19 +14,18 @@ open! Core
    One nice think about Wikipedia is that stringent content moderation results in
    uniformity in article format. We can expect that all Wikipedia article links parsed
    from a Wikipedia page will have the form "/wiki/<TITLE>". *)
-let filter_attribute_list href_attribute_list : string list =
-  List.filter
-    ~f:(fun href_attribute ->
-      String.is_prefix ~prefix:"/wiki/" href_attribute)
-    href_attribute_list
+let remove_non_wiki href_attribute_list : string list =
+  List.filter ~f:(String.is_prefix ~prefix:"/wiki/") href_attribute_list
 ;;
 
 let remove_namespaces_and_duplicates link_list : string list =
+  (*remove namespaces*)
   List.map link_list ~f:(fun link ->
     match Wikipedia_namespace.namespace link with None -> link | _ -> "")
   |> List.filter ~f:(fun href_attribute ->
     String.equal href_attribute "" |> not)
-  |> List.remove_consecutive_duplicates ~equal:String.equal
+  (*removing duplicates*)
+  |> List.dedup_and_sort ~compare:String.compare
 ;;
 
 let get_linked_articles contents : string list =
@@ -36,8 +35,7 @@ let get_linked_articles contents : string list =
     List.map link_node_list ~f:(fun link_node ->
       R.attribute "href" link_node |> String.strip)
   in
-  filter_attribute_list href_attribute_list
-  |> remove_namespaces_and_duplicates
+  remove_non_wiki href_attribute_list |> remove_namespaces_and_duplicates
 ;;
 
 let%expect_test "get_linked_articles" =

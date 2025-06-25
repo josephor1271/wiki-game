@@ -1,5 +1,8 @@
 open! Core
-module City = String
+
+module City = struct
+  type t = string [@@deriving compare, sexp, hash, equal]
+end
 
 module Interstate_Name = struct
   include String
@@ -7,10 +10,7 @@ module Interstate_Name = struct
   let default = ""
 end
 
-(* We separate out the [Network] module to represent our social network in OCaml types. *)
 module Interstate_Network = struct
-  (* We can represent our social network graph as a set of connections, where a connection
-     represents a friendship between two people. *)
   module Interstate = struct
     module T = struct
       type t = Interstate_Name.t * (City.t * City.t)
@@ -22,8 +22,7 @@ module Interstate_Network = struct
        gives us immutable maps, which might come in handy later. *)
     include Comparable.Make (T)
 
-    let is_reflexive road : bool =
-      let city_1, city_2 = road in
+    let is_reflexive_not_bool (city_1, city_2) : bool =
       String.equal city_1 city_2 |> not
     ;;
 
@@ -33,22 +32,20 @@ module Interstate_Network = struct
         |> String.substr_replace_all ~pattern:" " ~with_:"_")
     ;;
 
-    (*This function takes in comma separated values and some name and returns a list of
-      tuples containing all possible combos of values along with the name of the highway
-      they belong to*)
-    let parse_interstate interstate (name : string)
-      : (string * (string * string)) list
+    let get_edges_from_city_list city_list (name : string)
+      : (Interstate_Name.t * (City.t * City.t)) list
       =
-      List.cartesian_product interstate interstate
-      |> List.filter ~f:(fun road -> is_reflexive road)
+      List.cartesian_product city_list city_list
+      |> List.filter ~f:is_reflexive_not_bool
       |> List.map ~f:(fun road -> name, road)
     ;;
 
     (*takes in a line from txt file and outputs list of (name, (city, city))*)
     let of_string s =
       match String.split s ~on:',' |> replace_dots_and_spaces with
-      | interstate_name :: cities -> parse_interstate cities interstate_name
-      | [] -> []
+      | interstate_name :: city_list ->
+        get_edges_from_city_list city_list interstate_name
+      | [] -> raise_s [%message "Got empty line!"]
     ;;
   end
 
@@ -57,12 +54,7 @@ module Interstate_Network = struct
   let of_file input_file =
     let connections =
       In_channel.read_lines (File_path.to_string input_file)
-      |> List.concat_map ~f:(fun s ->
-        match Interstate.of_string s with
-        | list ->
-          (* Friendships are mutual; a connection between a and b means we should also
-             consider the connection between b and a. *)
-          list)
+      |> List.concat_map ~f:Interstate.of_string
     in
     Interstate.Set.of_list connections
   ;;

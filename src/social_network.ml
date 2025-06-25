@@ -122,19 +122,12 @@ let visualize_command =
 
 (* [find_friend_group network ~person] returns a list of all people who are mutually
    connected to the provided [person] in the provided [network]. *)
-(* let is_in_network connection target_person : bool =
-  let first_person, second_person = connection in
-  Person.equal first_person target_person
-  || Person.equal second_person target_person
+let is_in_network (first_person, _) current : bool =
+  Person.equal first_person current
 ;;
 
-let get_friend connection target_person : string =
-  let first_person, second_person = connection in
-  match Person.equal target_person first_person with
-  | true -> second_person
-  | false -> first_person
-;;
- *)
+let get_friend_from_connection (_, second_person) : string = second_person
+
 let find_friend_group network ~person : Person.t list =
   (* let filtered_network = Set.filter ~f:(fun connection -> is_in_network connection person) network in
      Set.map ~f:(fun connection -> get_friend connection person) filtered_network *)

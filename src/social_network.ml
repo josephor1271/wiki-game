@@ -123,17 +123,63 @@ let visualize_command =
 (* [find_friend_group network ~person] returns a list of all people who are mutually
    connected to the provided [person] in the provided [network]. *)
 let is_in_network (first_person, _) current : bool =
-  Person.equal first_person current
+  String.equal first_person current
 ;;
 
 let get_friend_from_connection (_, second_person) : string = second_person
 
+let get_direct_connections network ~current_person =
+  Set.to_list network
+  |> List.filter ~f:(fun connection ->
+    is_in_network connection current_person)
+  |> List.map ~f:get_friend_from_connection
+;;
+
+let update_visited ~breadth ~new_breadth =
+  List.append breadth new_breadth
+  |> List.dedup_and_sort ~compare:String.compare
+;;
+
+let remove_visited_from_queue visited queue =
+  List.filter queue ~f:(fun queue_member ->
+    List.mem visited queue_member ~equal:String.equal |> not)
+;;
+
+let update_queue ~queue ~source_breadth visited =
+  List.append queue source_breadth
+  |> List.dedup_and_sort ~compare:String.compare
+  |> remove_visited_from_queue visited
+;;
+
+let rec bfs network ~source ~to_visit_queue ~visited =
+  let source_breadth =
+    get_direct_connections network ~current_person:source
+  in
+  let updated_queue =
+    update_queue ~queue:to_visit_queue ~source_breadth visited
+  in
+  match updated_queue with
+  | [] -> source_breadth
+  | queue ->
+    source_breadth
+    @ bfs
+        network
+        ~source:(List.hd_exn to_visit_queue)
+        ~to_visit_queue:queue
+        ~visited:(update_visited ~breadth:visited ~new_breadth:[ source ])
+;;
+
 let find_friend_group network ~person : Person.t list =
   (* let filtered_network = Set.filter ~f:(fun connection -> is_in_network connection person) network in
      Set.map ~f:(fun connection -> get_friend connection person) filtered_network *)
-  ignore network;
-  ignore person;
-  failwith "TODO"
+  List.dedup_and_sort
+    ~compare:String.compare
+    (bfs
+       network
+       ~source:person
+       ~to_visit_queue:
+         (get_direct_connections network ~current_person:person)
+       ~visited:[])
 ;;
 
 let find_friend_group_command =

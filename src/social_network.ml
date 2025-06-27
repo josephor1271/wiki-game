@@ -170,8 +170,6 @@ let rec bfs network ~source ~to_visit_queue ~visited =
 ;;
 
 let find_friend_group network ~person : Person.t list =
-  (* let filtered_network = Set.filter ~f:(fun connection -> is_in_network connection person) network in
-     Set.map ~f:(fun connection -> get_friend connection person) filtered_network *)
   List.dedup_and_sort
     ~compare:String.compare
     (bfs

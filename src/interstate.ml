@@ -10,7 +10,7 @@ module Interstate_Name = struct
   let default = ""
 end
 
-module Interstate_Network = struct
+module Interstate_network = struct
   module Interstate = struct
     module T = struct
       type t = Interstate_Name.t * (City.t * City.t)
@@ -73,10 +73,10 @@ let load_command =
             "FILE a file listing interstates and the cities they go through"
       in
       fun () ->
-        let network = Interstate_Network.of_file input_file in
+        let network = Interstate_network.of_file input_file in
         (* This special syntax can be used to easily sexp-serialize values (whose types
            have [sexp_of_t] implemented). *)
-        printf !"%{sexp: Interstate_Network.t}\n" network]
+        printf !"%{sexp: Interstate_network.t}\n" network]
 ;;
 
 module G = Graph.Imperative.Graph.ConcreteLabeled (City) (Interstate_Name)
@@ -121,7 +121,7 @@ let visualize_command =
           ~doc:"FILE where to write generated graph"
       in
       fun () ->
-        let interstate_network = Interstate_Network.of_file input_file in
+        let interstate_network = Interstate_network.of_file input_file in
         let graph = G.create () in
         Set.iter interstate_network ~f:(fun (name, (city_1, city_2)) ->
           (* [G.add_edge] auomatically adds the endpoints as vertices in the graph if

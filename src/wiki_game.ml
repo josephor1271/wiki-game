@@ -82,12 +82,137 @@ let print_links_command =
    [how_to_fetch] argument along with [File_fetcher] to fetch the articles so that the
    implementation can be tested locally on the small dataset in the ../resources/wiki
    directory. *)
+module Article = struct
+  type t = string [@@deriving compare, sexp, hash, equal]
+end
+
+module Level = struct
+  include Int
+
+  (*let default = 0*)
+end
+
+module Article_network = struct
+  module Article_connection = struct
+    module T = struct
+      type t = Article.t * Article.t [@@deriving compare, sexp]
+    end
+
+    (* This funky syntax is necessary to implement sets of [Connection.t]s. This is needed
+       to defined our [Network.t] type later. Using this [Comparable.Make] functor also
+       gives us immutable maps, which might come in handy later. *)
+    include Comparable.Make (T)
+  end
+
+  type t = Article_connection.Set.t [@@deriving sexp_of]
+end
+
+let get_contents_from_string_link string_link ~how_to_fetch : string =
+  match how_to_fetch with
+  | File_fetcher.How_to_fetch.Remote ->
+    File_fetcher.fetch_exn Remote ~resource:"https://en.wikipedia.org"
+    ^ string_link
+  | x -> File_fetcher.fetch_exn x ~resource:string_link
+;;
+
+let remove_visited_from_queue visited queue =
+  List.filter queue ~f:(fun queue_member ->
+    List.mem visited queue_member ~equal:String.equal |> not)
+;;
+
+let update_queue ~queue ~source_neighbors ~visited ~max_depth ~current_depth =
+  match current_depth < max_depth with
+  | true ->
+    List.append queue source_neighbors
+    |> List.dedup_and_sort ~compare:String.compare
+    |> remove_visited_from_queue visited
+  | false -> []
+;;
+
+let get_neighbors_from_source source ~how_to_fetch : string list =
+  get_contents_from_string_link source ~how_to_fetch |> get_linked_articles
+;;
+
+let update_visited ~visited ~new_neighbors =
+  List.append visited new_neighbors
+  |> List.dedup_and_sort ~compare:String.compare
+;;
+
+let create_new_connections_from_source source neighbors =
+  List.map neighbors ~f:(fun neighbor -> source, neighbor)
+;;
+
+let rec get_connections_with_bfs
+          ~source
+          ~max_depth
+          ~how_to_fetch
+          ~queue
+          ~visited
+          ~current_depth
+  =
+  let source_neighbors = get_neighbors_from_source source ~how_to_fetch in
+  let updated_queue =
+    update_queue ~queue ~source_neighbors ~visited ~current_depth ~max_depth
+  in
+  let new_visited =
+    update_visited ~visited ~new_neighbors:source_neighbors
+  in
+  let new_depth = current_depth + 1 in
+  let new_connections =
+    create_new_connections_from_source source source_neighbors
+  in
+  match updated_queue with
+  | [] -> new_connections
+  | new_source :: rest_of_queue ->
+    new_connections
+    @ get_connections_with_bfs
+        ~source:new_source
+        ~max_depth
+        ~how_to_fetch
+        ~queue:rest_of_queue
+        ~visited:new_visited
+        ~current_depth:new_depth
+;;
+
+module G = Graph.Imperative.Graph.Concrete (Article)
+
+module Dot = Graph.Graphviz.Dot (struct
+    include G
+
+    (* These functions can be changed to tweak the appearance of the generated
+       graph. Check out the ocamlgraph graphviz API
+       (https://github.com/backtracking/ocamlgraph/blob/master/src/graphviz.mli) for
+       examples of what values can be set here. *)
+    let edge_attributes _ = [ `Dir `Forward ]
+    let default_edge_attributes _ = []
+    let get_subgraph _ = None
+    let vertex_attributes v = [ `Shape `Box; `Label v; `Fillcolor 1000 ]
+    let vertex_name v = Printf.sprintf "\"%s\"" v
+    let default_vertex_attributes _ = []
+    let graph_attributes _ = []
+  end)
+
 let visualize ?(max_depth = 3) ~origin ~output_file ~how_to_fetch () : unit =
-  ignore (max_depth : int);
-  ignore (origin : string);
-  ignore (output_file : File_path.t);
-  ignore (how_to_fetch : File_fetcher.How_to_fetch.t);
-  failwith "TODO"
+  (*let contents = File_fetcher.fetch_exn how_to_fetch ~resource:origin in
+    get_linked_articles contents*)
+  let list_of_connections =
+    get_connections_with_bfs
+      ~source:origin
+      ~max_depth
+      ~how_to_fetch
+      ~queue:[]
+      ~visited:[]
+      ~current_depth:0
+  in
+  let graph = G.create () in
+  List.iter list_of_connections ~f:(fun (article1, article2) ->
+    (* [G.add_edge] auomatically adds the endpoints as vertices in the graph if
+       they don't already exist. *)
+    G.add_edge graph article1 article2);
+  Dot.output_graph
+    (Out_channel.create (File_path.to_string output_file))
+    graph;
+  ()
 ;;
 
 let visualize_command =
